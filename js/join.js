@@ -1,35 +1,29 @@
-import { db, authReady } from "./firebase.js";
-import {
-  ref,
-  onValue,
-  set,
-  get
-} from "https://www.gstatic.com/firebasejs/10.7.0/firebase-database.js";
+import { db, auth, authReady } from "./firebase.js";
+import { ref, onValue, set, get } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-database.js";
 
-// --------------------
-// INITIAL SETUP
-// --------------------
+// ----------------
+// GET ROOM
+// ----------------
 const room = new URLSearchParams(location.search).get("room");
 if (!room) {
-  alert("No room code");
-  throw new Error("Missing room");
+  alert("Missing room code");
+  throw new Error("Missing room code");
 }
 
-await authReady; // 🔑 REQUIRED
+await authReady; // <-- MUST wait for auth
 
-const roomRef = ref(db, `rooms/${room}`);
 const approvedRef = ref(db, `rooms/${room}/approvedNames`);
 const playerRef = ref(db, `rooms/${room}/players/${auth.currentUser.uid}`);
+const roomRef = ref(db, `rooms/${room}`);
 
 const select = document.getElementById("names");
 const joinBtn = document.getElementById("join");
 
-// --------------------
-// LOAD APPROVED NAMES
-// --------------------
+// ----------------
+// LISTEN APPROVED NAMES
+// ----------------
 onValue(approvedRef, snap => {
   const names = snap.val();
-
   select.innerHTML = "";
 
   if (!names) {
@@ -48,9 +42,9 @@ onValue(approvedRef, snap => {
   });
 });
 
-// --------------------
-// JOIN GAME
-// --------------------
+// ----------------
+// JOIN BUTTON
+// ----------------
 joinBtn.onclick = async () => {
   const roomSnap = await get(roomRef);
 
@@ -71,11 +65,12 @@ joinBtn.onclick = async () => {
   joinBtn.disabled = true;
 };
 
-// --------------------
-// WAIT FOR GAME START
-// --------------------
+// ----------------
+// AUTO-REDIRECT WHEN GAME STARTS
+// ----------------
 onValue(roomRef, snap => {
-  if (snap.val()?.status === "started") {
+  const data = snap.val();
+  if (data?.status === "started") {
     location.href = `game.html?room=${room}`;
   }
 });
