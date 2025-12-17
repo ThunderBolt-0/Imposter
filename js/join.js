@@ -1,16 +1,14 @@
 import { db, auth, authReady } from "./firebase.js";
-import { ref, onValue, set, get } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-database.js";
+import { ref, onValue, set } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-database.js";
 
-// ----------------
-// GET ROOM
-// ----------------
-const room = new URLSearchParams(location.search).get("room");
+// Get room code from URL
+const room = new URLSearchParams(window.location.search).get("room");
 if (!room) {
-  alert("Missing room code");
+  alert("No room code");
   throw new Error("Missing room code");
 }
 
-await authReady; // <-- MUST wait for auth
+await authReady; // wait for Firebase auth
 
 const approvedRef = ref(db, `rooms/${room}/approvedNames`);
 const playerRef = ref(db, `rooms/${room}/players/${auth.currentUser.uid}`);
@@ -19,9 +17,7 @@ const roomRef = ref(db, `rooms/${room}`);
 const select = document.getElementById("names");
 const joinBtn = document.getElementById("join");
 
-// ----------------
-// LISTEN APPROVED NAMES
-// ----------------
+// Listen for approved names
 onValue(approvedRef, snap => {
   const names = snap.val();
   select.innerHTML = "";
@@ -42,12 +38,9 @@ onValue(approvedRef, snap => {
   });
 });
 
-// ----------------
-// JOIN BUTTON
-// ----------------
+// Join button
 joinBtn.onclick = async () => {
   const roomSnap = await get(roomRef);
-
   if (!roomSnap.exists()) {
     alert("Room does not exist");
     return;
@@ -58,19 +51,15 @@ joinBtn.onclick = async () => {
     return;
   }
 
-  await set(playerRef, {
-    name: select.value
-  });
+  // Save player selection
+  await set(playerRef, { name: select.value });
 
   joinBtn.disabled = true;
 };
 
-// ----------------
-// AUTO-REDIRECT WHEN GAME STARTS
-// ----------------
+// Redirect when game starts
 onValue(roomRef, snap => {
-  const data = snap.val();
-  if (data?.status === "started") {
-    location.href = `game.html?room=${room}`;
+  if (snap.val()?.status === "started") {
+    window.location.href = `game.html?room=${room}`;
   }
 });
