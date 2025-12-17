@@ -1,45 +1,28 @@
 import { db, auth, authReady } from "./firebase.js";
-import { ref, onValue, set } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-database.js";
+import { ref, set, onValue, get } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-database.js";
 
-// Get room code from URL
+await authReady; // wait for auth
+
 const room = new URLSearchParams(window.location.search).get("room");
 if (!room) {
-  alert("No room code");
-  throw new Error("Missing room code");
+  alert("Missing room code");
+  throw new Error("No room code");
 }
 
-await authReady; // wait for Firebase auth
+const nameInput = document.getElementById("name");
+const joinBtn = document.getElementById("join");
 
-const approvedRef = ref(db, `rooms/${room}/approvedNames`);
 const playerRef = ref(db, `rooms/${room}/players/${auth.currentUser.uid}`);
 const roomRef = ref(db, `rooms/${room}`);
 
-const select = document.getElementById("names");
-const joinBtn = document.getElementById("join");
-
-// Listen for approved names
-onValue(approvedRef, snap => {
-  const names = snap.val();
-  select.innerHTML = "";
-
-  if (!names) {
-    const opt = document.createElement("option");
-    opt.textContent = "Waiting for host...";
-    opt.disabled = true;
-    select.appendChild(opt);
+// Join button
+joinBtn.onclick = async () => {
+  const name = nameInput.value.trim();
+  if (!name) {
+    alert("Enter your name");
     return;
   }
 
-  Object.keys(names).forEach(name => {
-    const opt = document.createElement("option");
-    opt.value = name;
-    opt.textContent = name;
-    select.appendChild(opt);
-  });
-});
-
-// Join button
-joinBtn.onclick = async () => {
   const roomSnap = await get(roomRef);
   if (!roomSnap.exists()) {
     alert("Room does not exist");
@@ -51,8 +34,8 @@ joinBtn.onclick = async () => {
     return;
   }
 
-  // Save player selection
-  await set(playerRef, { name: select.value });
+  // Save player name freely
+  await set(playerRef, { name });
 
   joinBtn.disabled = true;
 };
