@@ -27,3 +27,20 @@ onValue(roomRef, snap => {
 document.getElementById("start").onclick = async () => {
   const snap = await (await fetch()).json();
 };
+import { get } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-database.js";
+
+document.getElementById("start").onclick = async () => {
+  const snap = await get(roomRef);
+  const data = snap.val();
+  const uids = Object.keys(data.players || {});
+  uids.sort(() => Math.random() - 0.5);
+
+  const imposters = new Set(uids.slice(0, data.numImposters));
+  for (const uid of uids) {
+    await update(ref(db, `rooms/${room}/players/${uid}`), {
+      role: imposters.has(uid) ? "imposter" : "word"
+    });
+  }
+
+  await update(roomRef, { status: "started" });
+};
