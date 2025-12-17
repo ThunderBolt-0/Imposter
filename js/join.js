@@ -1,4 +1,4 @@
-import { db, auth } from "./firebase.js";
+import { db, authReady } from "./firebase.js";
 import {
   ref,
   onValue,
@@ -6,16 +6,41 @@ import {
   get
 } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-database.js";
 
+// --------------------
+// INITIAL SETUP
+// --------------------
 const room = new URLSearchParams(location.search).get("room");
+if (!room) {
+  alert("No room code");
+  throw new Error("Missing room");
+}
+
+await authReady; // 🔑 REQUIRED
+
+const roomRef = ref(db, `rooms/${room}`);
+const approvedRef = ref(db, `rooms/${room}/approvedNames`);
+const playerRef = ref(db, `rooms/${room}/players/${auth.currentUser.uid}`);
+
 const select = document.getElementById("names");
 const joinBtn = document.getElementById("join");
 
-const roomRef = ref(db, `rooms/${room}`);
-const playerRef = ref(db, `rooms/${room}/players/${auth.currentUser.uid}`);
+// --------------------
+// LOAD APPROVED NAMES
+// --------------------
+onValue(approvedRef, snap => {
+  const names = snap.val();
 
-onValue(ref(db, `rooms/${room}/approvedNames`), snap => {
   select.innerHTML = "";
-  Object.keys(snap.val() || {}).forEach(name => {
+
+  if (!names) {
+    const opt = document.createElement("option");
+    opt.textContent = "Waiting for host...";
+    opt.disabled = true;
+    select.appendChild(opt);
+    return;
+  }
+
+  Object.keys(names).forEach(name => {
     const opt = document.createElement("option");
     opt.value = name;
     opt.textContent = name;
@@ -23,8 +48,17 @@ onValue(ref(db, `rooms/${room}/approvedNames`), snap => {
   });
 });
 
+// --------------------
+// JOIN GAME
+// --------------------
 joinBtn.onclick = async () => {
   const roomSnap = await get(roomRef);
+
+  if (!roomSnap.exists()) {
+    alert("Room does not exist");
+    return;
+  }
+
   if (roomSnap.val().status !== "lobby") {
     alert("Game already started");
     return;
@@ -37,8 +71,11 @@ joinBtn.onclick = async () => {
   joinBtn.disabled = true;
 };
 
+// --------------------
+// WAIT FOR GAME START
+// --------------------
 onValue(roomRef, snap => {
-  if (snap.val().status === "started") {
+  if (snap.val()?.status === "started") {
     location.href = `game.html?room=${room}`;
   }
 });
