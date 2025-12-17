@@ -4,16 +4,16 @@
   <title>Host Lobby</title>
 </head>
 <body>
-
   <h1>Host Lobby</h1>
   <h2 id="room"></h2>
 
-  <h3>Add Approved Name</h3>
-  <input id="name" placeholder="Player name">
-  <button id="add">Add</button>
-
-  <h3>Players</h3>
+  <h3>Players Joined</h3>
   <ul id="players"></ul>
+
+  <h3>Game Settings</h3>
+  <label>Word: <input id="word" placeholder="Enter word"></label>
+  <label>Number of Imposters: <input type="number" id="numImposters" value="1" min="1"></label>
+  <br><br>
 
   <button id="start">Start Game</button>
   <button id="reset">End / Restart</button>

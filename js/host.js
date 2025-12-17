@@ -1,133 +1,121 @@
 import { db, auth, authReady } from "./firebase.js";
-import {
-  ref,
-  onValue,
-  update,
-  get
-} from "https://www.gstatic.com/firebasejs/10.7.0/firebase-database.js";
+import { ref, set, onValue, update, get } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-database.js";
 
-// --------------------
-// INITIAL SETUP
-// --------------------
-const room = new URLSearchParams(location.search).get("room");
-if (!room) {
-  alert("No room code");
-  throw new Error("Missing room code");
-}
+await authReady; // wait for auth
 
-await authReady; // 🔑 CRITICAL FIX
+// Get room code from URL
+const room = new URLSearchParams(window.location.search).get("room");
+if (!room) throw new Error("Missing room code");
 
 const roomRef = ref(db, `rooms/${room}`);
+const wordInput = document.getElementById("word");
+const numImpostersInput = document.getElementById("numImposters");
+
+const playersList = document.getElementById("players");
+const newHostSelect = document.getElementById("newHost");
 
 document.getElementById("room").textContent = `Room: ${room}`;
 
 // --------------------
-// ADD APPROVED NAMES
+// Create room if not exists
 // --------------------
-const nameInput = document.getElementById("name");
-const addBtn = document.getElementById("add");
+const roomSnap = await get(roomRef);
+if (!roomSnap.exists()) {
+  await set(roomRef, {
+    hostId: auth.currentUser.uid,
+    word: "Example",
+    numImposters: 1,
+    status: "lobby",
+    players: {}
+  });
+}
 
-addBtn.onclick = async () => {
-  const name = nameInput.value.trim();
+// --------------------
+// Listen for players and update UI
+// --------------------
+onValue(roomRef, snap => {
+  const data = snap.val();
+  if (!data) return;
 
-  if (!name) {
-    alert("Enter a name");
-    return;
-  }
+  playersList.innerHTML = "";
+  newHostSelect.innerHTML = "";
 
-  await update(ref(db, `rooms/${room}/approvedNames`), {
-    [name]: true
+  const players = data.players || {};
+
+  Object.entries(players).forEach(([uid, player]) => {
+    const li = document.createElement("li");
+    li.textContent = `${player.name}${uid === data.hostId ? " (Host)" : ""}`;
+    playersList.appendChild(li);
+
+    if (uid !== data.hostId) {
+      const opt = document.createElement("option");
+      opt.value = uid;
+      opt.textContent = player.name;
+      newHostSelect.appendChild(opt);
+    }
   });
 
-  nameInput.value = "";
-};
+  wordInput.value = data.word || "";
+  numImpostersInput.value = data.numImposters || 1;
+});
 
 // --------------------
-// START GAME
+// Start game
 // --------------------
 document.getElementById("start").onclick = async () => {
-  const snap = await get(roomRef);
-  const data = snap.val();
+  const dataSnap = await get(roomRef);
+  const data = dataSnap.val();
+  const players = Object.keys(data.players || {});
 
-  if (!data.players) {
-    alert("No players joined");
+  if (players.length <= 0) {
+    alert("No players joined yet!");
     return;
   }
 
-  const uids = Object.keys(data.players);
-  if (uids.length <= data.numImposters) {
-    alert("Not enough players");
+  const word = wordInput.value.trim();
+  const numImposters = parseInt(numImpostersInput.value);
+
+  if (!word || numImposters < 1 || numImposters >= players.length) {
+    alert("Check word or number of imposters");
     return;
   }
 
   // Shuffle players
-  uids.sort(() => Math.random() - 0.5);
+  const shuffled = [...players].sort(() => Math.random() - 0.5);
+  const imposters = shuffled.slice(0, numImposters);
 
-  const imposters = new Set(
-    uids.slice(0, data.numImposters)
-  );
-
-  for (const uid of uids) {
+  for (const uid of players) {
     await update(ref(db, `rooms/${room}/players/${uid}`), {
-      role: imposters.has(uid) ? "imposter" : "word"
+      role: imposters.includes(uid) ? "imposter" : "word"
     });
   }
 
-  await update(roomRef, { status: "started" });
+  await update(roomRef, {
+    status: "started",
+    word,
+    numImposters
+  });
 };
 
 // --------------------
-// RESET GAME
+// Reset / restart game
 // --------------------
 document.getElementById("reset").onclick = async () => {
-  const snap = await get(roomRef);
-  const players = snap.val().players || {};
+  const dataSnap = await get(roomRef);
+  const players = dataSnap.val()?.players || {};
 
   for (const uid in players) {
-    await update(ref(db, `rooms/${room}/players/${uid}`), {
-      role: null
-    });
+    await update(ref(db, `rooms/${room}/players/${uid}`), { role: null });
   }
 
   await update(roomRef, { status: "lobby" });
 };
 
 // --------------------
-// TRANSFER HOST
+// Transfer host
 // --------------------
 document.getElementById("transfer").onclick = async () => {
-  const newHost = document.getElementById("newHost").value;
+  const newHost = newHostSelect.value;
   if (!newHost) return;
-
   await update(roomRef, { hostId: newHost });
 };
-
-// --------------------
-// LIVE UI UPDATES
-// --------------------
-onValue(roomRef, snap => {
-  const data = snap.val();
-  if (!data) return;
-
-  // Player list
-  const playerList = document.getElementById("players");
-  const hostSelect = document.getElementById("newHost");
-
-  playerList.innerHTML = "";
-  hostSelect.innerHTML = "";
-
-  Object.entries(data.players || {}).forEach(([uid, player]) => {
-    const li = document.createElement("li");
-    li.textContent =
-      player.name +
-      (uid === data.hostId ? " (Host)" : "");
-    playerList.appendChild(li);
-
-    if (uid !== data.hostId) {
-      const opt = document.createElement("option");
-      opt.value = uid;
-      opt.textContent = player.name;
-      hostSelect.appendChild(opt);
-    }
-  });
-});

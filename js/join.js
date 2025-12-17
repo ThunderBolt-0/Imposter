@@ -1,19 +1,16 @@
 import { db, auth, authReady } from "./firebase.js";
 import { ref, set, onValue, get } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-database.js";
 
-await authReady; // wait for auth
+await authReady;
 
 const room = new URLSearchParams(window.location.search).get("room");
-if (!room) {
-  alert("Missing room code");
-  throw new Error("No room code");
-}
+if (!room) throw new Error("Missing room code");
 
 const nameInput = document.getElementById("name");
 const joinBtn = document.getElementById("join");
 
-const playerRef = ref(db, `rooms/${room}/players/${auth.currentUser.uid}`);
 const roomRef = ref(db, `rooms/${room}`);
+const playerRef = ref(db, `rooms/${room}/players/${auth.currentUser.uid}`);
 
 // Join button
 joinBtn.onclick = async () => {
@@ -34,15 +31,16 @@ joinBtn.onclick = async () => {
     return;
   }
 
-  // Save player name freely
+  // This ensures each player writes to their own UID child
   await set(playerRef, { name });
 
   joinBtn.disabled = true;
 };
 
-// Redirect when game starts
+// Optional: redirect to game when host starts
 onValue(roomRef, snap => {
-  if (snap.val()?.status === "started") {
+  const data = snap.val();
+  if (data?.status === "started") {
     window.location.href = `game.html?room=${room}`;
   }
 });
