@@ -1,10 +1,17 @@
 import { db, auth } from "./firebase.js";
-import { ref, onValue } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-database.js";
+import { ref, onValue } from
+"https://www.gstatic.com/firebasejs/10.7.0/firebase-database.js";
 
 const room = new URLSearchParams(location.search).get("room");
 
-onValue(ref(db, `rooms/${room}/players/${auth.currentUser.uid}`), snap => {
-  const role = snap.val().role;
+onValue(ref(db, `rooms/${room}`), snap => {
+  const data = snap.val();
+  const player = data.players[auth.currentUser.uid];
+
+  if (!player || data.status !== "started") return;
+
   document.getElementById("result").textContent =
-    role === "word" ? "You know the word" : "You are the imposter";
+    player.role === "word"
+      ? `The word is: ${data.word}`
+      : "You are the IMPOSTER";
 });

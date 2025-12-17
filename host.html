@@ -1,16 +1,14 @@
-<!DOCTYPE html>
-<html>
-<body>
-  <h1>Host Lobby</h1>
-  <h2 id="room"></h2>
+<h1>Host Lobby</h1>
+<h2 id="room"></h2>
 
-  <input id="name" placeholder="Add name">
-  <button id="add">Add</button>
+<input id="name" placeholder="Add approved name">
+<button id="add">Add</button>
 
-  <ul id="names"></ul>
+<h3>Players</h3>
+<ul id="players"></ul>
 
-  <button id="start">Start Game</button>
+<button id="start">Start Game</button>
+<button id="reset">End / Restart</button>
 
-  <script type="module" src="js/host.js"></script>
-</body>
-</html>
+<select id="newHost"></select>
+<button id="transfer">Transfer Host</button>
